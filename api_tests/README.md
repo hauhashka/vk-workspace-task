@@ -13,7 +13,7 @@ pytest api_tests -q
 
 Без переменных окружения набор сам собирает службу (`go build` в `service/`)
 и поднимает локальный сервер `stub_server.py`, совместимый с контрактом.
-Полный прогон занимает около 3 секунд.
+Полный прогон (26 тестов) занимает около 3 секунд.
 
 Против другого сервера:
 
@@ -53,7 +53,7 @@ GHREPORT_BIN=/path/to/ghreport GITHUB_API_BASE_URL=http://localhost:8080 pytest 
 
 | Требование | Тесты |
 |---|---|
-| 1. Постраничная выдача и `--limit` | `test_pagination.py::test_limit_across_pages`, `test_full_listing_matches_api`, `test_follows_link_header` |
+| 1. Постраничная выдача и `--limit` | `test_pagination.py::test_limit_across_pages`, `test_full_listing_matches_api`, `test_default_limit_is_100`, `test_follows_link_header` |
 | 2. Фильтрация pull request-ов | `test_pagination.py::test_pull_requests_are_excluded` |
 | 3. `--since` | `test_since.py` |
 | 4. Кэширование | `test_cache.py` |
@@ -77,15 +77,17 @@ done
 |---|---|
 | сервер: нет `Link` при наличии следующей страницы (`missing_link`) | 1 |
 | сервер: PR без ключа `pull_request` (`pr_without_flag`) | 1 |
-| сервер: 304 на запрос без `If-None-Match` (`unconditional_304`) | 13 |
-| сервер: повреждённый JSON (`broken_json`) | 13 |
+| сервер: 304 на запрос без `If-None-Match` (`unconditional_304`) | 15 |
+| сервер: повреждённый JSON (`broken_json`) | 15 |
 | сервер: неверное направление сортировки (`desc_order`) | 1 |
 | служба: пропуск элемента при постраничной выдаче | 2 |
-| служба: нет дедупликации по `number` | 5 |
-| служба: нет фильтра pull request-ов | 4 |
-| служба: `direction=desc` в запросе | 3 |
-| служба: обратная сортировка отчёта | 5 |
+| служба: нет дедупликации по `number` | 6 |
+| служба: нет фильтра pull request-ов | 5 |
+| служба: `direction=desc` в запросе | 4 |
+| служба: обратная сортировка отчёта | 6 |
 | служба: нет паузы после 429 | 1 |
 | служба: не отправляет `If-None-Match` | 1 |
 | служба: неверная граница `--since` | 1 |
-| служба: `--limit` на единицу больше | 1 |
+| служба: `--limit` на единицу больше | 2 |
+| служба: не удаляет дубликаты в `--repos` | 1 |
+| служба: `--limit` по умолчанию не 100 | 1 |

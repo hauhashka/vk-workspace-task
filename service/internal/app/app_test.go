@@ -172,3 +172,29 @@ func TestAllFailed(t *testing.T) {
 		t.Fatalf("code=%d stdout=%q", code, stdout)
 	}
 }
+
+func TestDefaultsAndDuplicateRepos(t *testing.T) {
+	cfg, err := parseArgs([]string{"--repos", "o/a, o/b,o/a,o/b,o/c"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.limit != DefaultLimit || cfg.cacheDir != DefaultCacheDir || cfg.out != "-" {
+		t.Fatalf("defaults: %+v", cfg)
+	}
+	var got []string
+	for _, r := range cfg.repos {
+		got = append(got, r.owner+"/"+r.name)
+	}
+	if strings.Join(got, ",") != "o/a,o/b,o/c" {
+		t.Fatalf("repos: %v", got)
+	}
+}
+
+func TestBaseURLTrailingSlash(t *testing.T) {
+	srv := stub(t, false)
+	code, stdout, stderr := run(t, map[string]string{"GITHUB_API_BASE_URL": srv.URL + "/"},
+		"--repos", "o/alpha", "--cache-dir", t.TempDir())
+	if code != ExitOK || decode(t, stdout)["repos"].([]any)[0].(map[string]any)["count"].(float64) != 2 {
+		t.Fatalf("code=%d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+}

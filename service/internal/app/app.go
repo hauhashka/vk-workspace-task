@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -29,7 +28,11 @@ const (
 	ExitFatal   = 3 // unauthorized или all_failed
 )
 
-const DefaultBaseURL = "https://api.github.com"
+const (
+	DefaultBaseURL  = "https://api.github.com"
+	DefaultLimit    = 100
+	DefaultCacheDir = "./.ghreport-cache"
+)
 
 const usage = `usage: ghreport --repos <owner/repo[,owner/repo...]>
                 [--limit <N>] [--since <YYYY-MM-DD>]
@@ -65,7 +68,7 @@ func parseArgs(args []string) (*config, error) {
 	since := fs.String("since", "", "")
 	out := fs.String("out", "-", "")
 	tracePath := fs.String("trace", "", "")
-	cacheDir := fs.String("cache-dir", "", "")
+	cacheDir := fs.String("cache-dir", DefaultCacheDir, "")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil, err
@@ -78,15 +81,21 @@ func parseArgs(args []string) (*config, error) {
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
 
-	cfg := &config{out: *out, trace: *tracePath, cacheDir: *cacheDir}
+	cfg := &config{out: *out, trace: *tracePath, cacheDir: *cacheDir, limit: DefaultLimit}
 	if strings.TrimSpace(*repos) == "" {
 		return nil, usageError{"--repos обязателен: owner/repo[,owner/repo...]"}
 	}
+	seen := map[string]bool{}
 	for _, r := range strings.Split(*repos, ",") {
 		r = strings.TrimSpace(r)
 		if !repoPattern.MatchString(r) {
 			return nil, usageError{fmt.Sprintf("--repos: некорректное имя репозитория %q, ожидается owner/repo", r)}
 		}
+		// Дубликаты удаляются с сохранением первого вхождения.
+		if seen[r] {
+			continue
+		}
+		seen[r] = true
 		owner, name, _ := strings.Cut(r, "/")
 		cfg.repos = append(cfg.repos, repoName{owner, name})
 	}
@@ -110,7 +119,7 @@ func parseArgs(args []string) (*config, error) {
 	if set["trace"] && cfg.trace == "" {
 		return nil, usageError{"--trace не может быть пустым"}
 	}
-	if set["cache-dir"] && cfg.cacheDir == "" {
+	if cfg.cacheDir == "" {
 		return nil, usageError{"--cache-dir не может быть пустым"}
 	}
 	return cfg, nil
@@ -144,24 +153,12 @@ func Run(args []string, stdout, stderr io.Writer, getenv func(string) string) in
 	client := github.NewClient(getenv("GITHUB_TOKEN"), baseURL.Host)
 	client.Log = logf
 
-	cacheDir := cfg.cacheDir
-	if cacheDir == "" {
-		if dir, err := os.UserCacheDir(); err == nil {
-			cacheDir = filepath.Join(dir, "ghreport")
-		}
+	c, err := cache.Open(cfg.cacheDir)
+	if err != nil {
+		logf("--cache-dir: %v", err)
+		return ExitUsage
 	}
-	if cacheDir != "" {
-		c, err := cache.Open(cacheDir)
-		if err != nil {
-			if cfg.cacheDir != "" {
-				logf("%v", err)
-				return ExitUsage
-			}
-			logf("%v; кэш отключён", err)
-		} else {
-			client.Cache = c
-		}
-	}
+	client.Cache = c
 
 	if cfg.trace != "" {
 		f, err := os.Create(cfg.trace)

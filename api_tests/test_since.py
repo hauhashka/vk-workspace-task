@@ -13,7 +13,7 @@ def test_since_filters_by_created_at(settings, ghreport, api_pages):
     pivot = contract.parse_time(everything[len(everything) // 2]["created_at"])
     since = contract.utc_midnight(pivot)
 
-    run = ghreport(settings.repo, "--since", since.strftime("%Y-%m-%d"))
+    run = ghreport(settings.repo, "--since", since.strftime("%Y-%m-%d"), "--limit", "1000000")
     repo = run.report["repos"][0]
 
     assert repo["error"] is None

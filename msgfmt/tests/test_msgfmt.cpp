@@ -52,6 +52,26 @@ void expect(const std::string& input, const std::string& text, const std::vector
 
 void expect_literal(const std::string& input) { expect(input, input, {}); }
 
+// Приложение А задания: контрольные примеры 1-15.
+void test_appendix_a() {
+    expect("**важно**", "важно", {B(0, 5)});
+    expect("Привет, **мир**!", "Привет, мир!", {B(8, 3)});
+    expect("_курсив_", "курсив", {I(0, 6)});
+    expect_literal("a_b_c");
+    expect_literal("**не закрыто");
+    expect("2 \\* 3", "2 * 3", {});
+    expect("`чат * список`", "чат * список", {C(0, 12)});
+    expect("[документация](https://docs.github.com)", "документация",
+           {L(0, 12, "https://docs.github.com")});
+    expect("**жирный _и_ курсив**", "жирный и курсив", {B(0, 15), I(7, 1)});
+    expect("🚀 **ок**", "🚀 ок", {B(3, 2)});
+    expect("**🚀 ок**", "🚀 ок", {B(0, 5)});
+    expect_literal("[текст]()");
+    expect("\\\\", "\\", {});
+    expect("", "", {});
+    expect_literal("_ e_");
+}
+
 void test_basic_styles() {
     expect("", "", {});
     expect("Привет, **мир**!", "Привет, мир!", {B(8, 3)});
@@ -231,6 +251,7 @@ void test_properties() {
 }  // namespace
 
 int main() {
+    test_appendix_a();
     test_basic_styles();
     test_word_boundaries();
     test_whitespace_rules();

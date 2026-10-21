@@ -1,10 +1,13 @@
 """Постраничная выдача, --limit, дедупликация и фильтрация pull request-ов."""
 
+import json
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pytest
 
 import contract
+
+ALL = "1000000"  # «без ограничения»: по умолчанию --limit равен 100
 
 
 def matching_per_page(pages):
@@ -40,7 +43,7 @@ def test_limit_across_pages(settings, ghreport, api_pages):
 def test_full_listing_matches_api(settings, ghreport, api_pages):
     """Без --limit в отчёт попадают все подходящие элементы всех страниц."""
     pages = api_pages(settings.repo)
-    run = ghreport(settings.repo)
+    run = ghreport(settings.repo, "--limit", ALL)
     repo = run.report["repos"][0]
     expected = contract.expected_issues(pages)
     missing = {i["number"] for i in expected} - {i["number"] for i in repo["issues"]}
@@ -49,10 +52,23 @@ def test_full_listing_matches_api(settings, ghreport, api_pages):
     assert repo["count"] == len(expected)
 
 
+def test_default_limit_is_100(settings, ghreport, api_pages):
+    pages = api_pages(settings.repo)
+    run = ghreport(settings.repo)
+    repo = run.report["repos"][0]
+    assert repo["issues"] == contract.expected_issues(pages, limit=100)
+    assert repo["count"] <= 100
+
+
+def test_duplicate_repos_are_reported_once(settings, ghreport):
+    run = ghreport(f"{settings.repo},{settings.missing_repo},{settings.repo}")
+    assert [r["repo"] for r in json.loads(run.proc.stdout)["repos"]] == [settings.repo, settings.missing_repo]
+
+
 def test_follows_link_header(settings, ghreport, api_pages):
     """Служба идёт строго по Link rel="next" и не запрашивает лишних страниц."""
     pages = api_pages(settings.repo)
-    run = ghreport(settings.repo)
+    run = ghreport(settings.repo, "--limit", ALL)
     assert run.proc.returncode == 0, run.proc.stderr
     urls = [rec["url"] for rec in run.trace if rec["status"] not in (301, 302, 307, 308)]
     # Повторные попытки дают несколько записей на один адрес - берём уникальные по порядку.
@@ -63,7 +79,7 @@ def test_follows_link_header(settings, ghreport, api_pages):
 def test_pull_requests_are_excluded(settings, ghreport, api_pages):
     pages = api_pages(settings.repo)
     prs = contract.pull_request_numbers(pages)
-    run = ghreport(settings.repo)
+    run = ghreport(settings.repo, "--limit", ALL)
     issues = run.report["repos"][0]["issues"]
     reported = {i["number"] for i in issues}
     assert not (reported & prs), f"pull request-ы в отчёте: {sorted(reported & prs)[:20]}"
