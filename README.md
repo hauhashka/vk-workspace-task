@@ -40,10 +40,12 @@ pytest api_tests -q
 | `gofmt -l .`, `go vet ./...`, `go test -race ./...` | чисто, все тесты проходят |
 | `pytest api_tests -q` против `stub_server.py` | 26 passed, ~3 с |
 | мутационная проверка набора (5 поломок сервера, 11 поломок службы) | каждая поломка обнаружена |
+| `docker build -t ghreport service/` | образ 14 МБ, пользователь `nonroot` |
+| `pytest api_tests -q` со службой, запущенной через `docker run` | 26 passed |
+| повторный запуск контейнера с томом `/cache` | второй запуск получает 304, `from_cache: true` |
 
-Не проверено в моём окружении: `docker build` (не было Docker-демона) и запуск
-против настоящего `api.github.com` (не было доступа к сети). Dockerfile
-написан по стандартной схеме multi-stage + distroless nonroot.
+Не проверено в моём окружении: запуск против настоящего `api.github.com`
+(не было доступа к сети).
 
 ## Ключевые решения
 
